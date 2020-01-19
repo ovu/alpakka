@@ -8,7 +8,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.NotUsed
 import akka.annotation.InternalApi
 import akka.stream.alpakka.mongodb.DocumentUpdate
-import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, UpdateOptions}
+import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, ReplaceOptions, UpdateOptions}
 import com.mongodb.client.result.{DeleteResult, UpdateResult}
 import com.mongodb.reactivestreams.client.MongoCollection
 import org.bson.conversions.Bson
@@ -27,6 +27,9 @@ object MongoFlow {
   @InternalApi private[mongodb] val DefaultUpdateOptions = new UpdateOptions()
 
   /** Internal Api */
+  @InternalApi private[mongodb] val DefaultReplaceOptions = new ReplaceOptions()
+
+  /** Internal Api */
   @InternalApi private[mongodb] val DefaultDeleteOptions = new DeleteOptions()
 
   /**
@@ -39,6 +42,19 @@ object MongoFlow {
                    options: InsertOneOptions = DefaultInsertOneOptions): Flow[T, T, NotUsed] =
     Flow[T]
       .flatMapConcat(doc => Source.fromPublisher(collection.insertOne(doc, options)).map(_ => doc))
+
+  /**
+   * A [[akka.stream.scaladsl.Flow Flow]] that will replace one document in a collection.
+   *
+   * @param collection mongo db collection where the document will be replaced.
+   * @param options options to apply to the operation
+   */
+  def replaceOne[T](collection: MongoCollection[T],
+                    options: ReplaceOptions = DefaultReplaceOptions): Flow[(Bson, T), T, NotUsed] =
+    Flow[(Bson, T)]
+      .flatMapConcat {
+        case (filter, doc) => Source.fromPublisher(collection.replaceOne(filter, doc, options)).map(_ => doc)
+      }
 
   /**
    * A [[akka.stream.scaladsl.Flow Flow]] that will insert batches documents into a collection.

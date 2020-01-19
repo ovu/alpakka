@@ -15,7 +15,7 @@ import akka.stream.alpakka.mongodb.scaladsl.MongoFlow.{
   DefaultUpdateOptions
 }
 import akka.stream.javadsl.{Keep, Sink}
-import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, UpdateOptions}
+import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, ReplaceOptions, UpdateOptions}
 import com.mongodb.reactivestreams.client.MongoCollection
 import org.bson.conversions.Bson
 
@@ -37,6 +37,15 @@ object MongoSink {
    */
   def insertOne[T](collection: MongoCollection[T], options: InsertOneOptions): Sink[T, CompletionStage[Done]] =
     MongoFlow.insertOne(collection, options).toMat(Sink.ignore(), Keep.right[NotUsed, CompletionStage[Done]])
+
+  /**
+   * A [[akka.stream.javadsl.Sink Sink]] that will replace a document in a collection.
+   *
+   * @param collection mongo db collection where the document will be replaced.
+   * @param options options to apply to the operation
+   */
+  def replaceOne[T](collection: MongoCollection[T], options: ReplaceOptions): Sink[(Bson, T), CompletionStage[Done]] =
+    MongoFlow.replaceOne(collection, options).toMat(Sink.ignore(), Keep.right[NotUsed, CompletionStage[Done]])
 
   /**
    * A [[akka.stream.javadsl.Sink Sink]] that will insert batches of documents into a collection.

@@ -14,7 +14,7 @@ import akka.stream.alpakka.mongodb.scaladsl.MongoFlow.{
   DefaultUpdateOptions
 }
 import akka.stream.javadsl.Flow
-import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, UpdateOptions}
+import com.mongodb.client.model.{DeleteOptions, InsertManyOptions, InsertOneOptions, ReplaceOptions, UpdateOptions}
 import com.mongodb.client.result.{DeleteResult, UpdateResult}
 import com.mongodb.reactivestreams.client.MongoCollection
 import org.bson.conversions.Bson
@@ -39,6 +39,15 @@ object MongoFlow {
    */
   def insertOne[T](collection: MongoCollection[T], options: InsertOneOptions): Flow[T, T, NotUsed] =
     scaladsl.MongoFlow.insertOne(collection, options).asJava
+
+  /**
+   * A [[akka.stream.javadsl.Flow Flow]] that will replace a document in a collection.
+   *
+   * @param collection mongo db collection where a document will be replaced.
+   * @param options options to apply to the operation
+   */
+  def replaceOne[T](collection: MongoCollection[T], options: ReplaceOptions): Flow[(Bson, T), T, NotUsed] =
+    scaladsl.MongoFlow.replaceOne(collection, options).asJava
 
   /**
    * A [[akka.stream.javadsl.Flow Flow]] that will insert batches of documents into a collection.
