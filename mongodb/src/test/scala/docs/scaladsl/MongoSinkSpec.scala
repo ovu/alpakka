@@ -28,8 +28,10 @@ class MongoSinkSpec extends AnyWordSpec with ScalaFutures with BeforeAndAfterEac
 
   // case class and codec for mongodb macros
   case class Number(_id: Int)
+  case class NumberWithValue(_id: Int, value: String)
 
-  val codecRegistry = fromRegistries(fromProviders(classOf[Number]), DEFAULT_CODEC_REGISTRY)
+  val codecRegistry = fromRegistries(fromProviders(classOf[Number], classOf[NumberWithValue]), DEFAULT_CODEC_REGISTRY)
+  val codecRegistry = fromRegistries(fromProviders(classOf[Number], classOf[NumberWithValue]), DEFAULT_CODEC_REGISTRY)
 
   implicit val system = ActorSystem()
   implicit val mat = ActorMaterializer()
@@ -41,6 +43,8 @@ class MongoSinkSpec extends AnyWordSpec with ScalaFutures with BeforeAndAfterEac
   private val db = client.getDatabase("MongoSinkSpec").withCodecRegistry(codecRegistry)
   private val numbersColl: MongoCollection[Number] =
     db.getCollection("numbersSink", classOf[Number]).withCodecRegistry(codecRegistry)
+  private val numbersWithValueColl: MongoCollection[NumberWithValue] =
+    db.getCollection("numbersWithValueSink", classOf[NumberWithValue]).withCodecRegistry(codecRegistry)
   private val numbersDocumentColl = db.getCollection("numbersSink")
 
   implicit val defaultPatience =
@@ -83,6 +87,27 @@ class MongoSinkSpec extends AnyWordSpec with ScalaFutures with BeforeAndAfterEac
       val found = Source.fromPublisher(numbersColl.find()).runWith(Sink.seq).futureValue
 
       found must contain theSameElementsAs testRangeObjects
+    }
+
+    "save with replaceOne and codec support" in assertAllStagesStopped {
+      // #insert-one
+      val testRangeObjects = testRange.map(n => NumberWithValue(n, s"value$n"))
+      val source = Source(testRangeObjects)
+      source.runWith(MongoSink.insertOne(numbersWithValueColl)).futureValue
+      // #insert-one
+
+      val foundInserted = Source.fromPublisher(numbersColl.find()).runWith(Sink.seq).futureValue
+
+      // #replace-one: replace the inserted ones using the same id and incrementing the value
+      val testRangeObjectsPlusOne = testRange.map(n => (Filters.eq("_id", n), NumberWithValue(n, s"value$n")))
+      val sourcePlusOne = Source(testRangeObjectsPlusOne)
+      sourcePlusOne.runWith(MongoSink.replaceOne(numbersWithValueColl)).futureValue
+      // #replace-one
+
+      val foundReplaced = Source.fromPublisher(numbersColl.find()).runWith(Sink.seq).futureValue
+      val foundInsertedPlusOne =
+        foundInserted.map(numberWithValue => NumberWithValue(numberWithValue._id, s"value${numberWithValue._id + 1}"))
+      foundReplaced must contain theSameElementsAs foundInsertedPlusOne
     }
 
     "save with insertMany" in assertAllStagesStopped {
